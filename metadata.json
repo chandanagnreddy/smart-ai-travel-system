@@ -1,0 +1,6 @@
+{
+  "name": "Smart AI Travel System",
+  "description": "Smart AI Travel System – One App for Complete Travel Experience. AI-powered trip planning, budget management, itinerary, accommodation, transportation, safety alerts, and local guidance.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
