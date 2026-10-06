@@ -10,8 +10,10 @@ import {
   Utensils,
   Shield,
   WifiOff,
+  CloudSun,
 } from 'lucide-react';
 import { TripPlan } from '../types';
+import { generate5DayWeatherForecast } from '../utils/weather';
 
 interface OfflineGuideModalProps {
   isOpen: boolean;
@@ -25,6 +27,8 @@ export const OfflineGuideModal: React.FC<OfflineGuideModalProps> = ({
   trip,
 }) => {
   if (!isOpen) return null;
+
+  const weather = trip.weatherForecast || generate5DayWeatherForecast(trip.formData.destination, trip.formData.travelDate);
 
   const handlePrint = () => {
     window.print();
@@ -139,6 +143,36 @@ export const OfflineGuideModal: React.FC<OfflineGuideModalProps> = ({
                 </div>
               ))}
             </div>
+          </div>
+
+          {/* 5-Day Weather Forecast Reference */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+                <CloudSun className="w-4 h-4 text-sky-500" />
+                <span>5-Day Meteorological Forecast Reference ({trip.formData.destination})</span>
+              </h4>
+              <span className="text-[10px] font-mono text-slate-400">Simulated Forecast Preview</span>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-5 gap-2 text-xs">
+              {weather.forecastDays.map((d) => (
+                <div
+                  key={d.dayNumber}
+                  className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 space-y-1"
+                >
+                  <div className="flex items-center justify-between font-bold text-slate-900 dark:text-white">
+                    <span>Day {d.dayNumber}</span>
+                    <span className="text-teal-600 dark:text-teal-400">{d.tempMaxC}°C</span>
+                  </div>
+                  <div className="text-[11px] text-slate-500">{d.formattedDate.split(',')[0]}</div>
+                  <div className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 truncate">{d.condition}</div>
+                  <div className="text-[10px] text-sky-600 dark:text-sky-400">💧 {d.precipitationChance}% rain</div>
+                </div>
+              ))}
+            </div>
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 italic">
+              <strong>Packing note:</strong> {weather.packingTip}
+            </p>
           </div>
 
           {/* Emergency Language Survival Guide */}

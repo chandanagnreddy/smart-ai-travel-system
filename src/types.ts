@@ -167,6 +167,59 @@ export interface EmergencyContacts {
   embassyHotline: string;
 }
 
+export interface WeatherHourlySlot {
+  time: string; // e.g. "08:00 AM"
+  period: 'Morning' | 'Afternoon' | 'Evening' | 'Night';
+  tempC: number;
+  tempF: number;
+  condition: string;
+  icon: 'sun' | 'cloud-sun' | 'cloud' | 'cloud-rain' | 'cloud-drizzle' | 'cloud-lightning' | 'wind';
+  pop: number; // probability of precipitation %
+}
+
+export interface WeatherForecastDay {
+  dayNumber: number;
+  date: string; // YYYY-MM-DD
+  formattedDate: string; // e.g. "Mon, Oct 20"
+  dayName: string; // e.g. "Monday"
+  condition: string; // e.g. "Sunny & Clear"
+  icon: 'sun' | 'cloud-sun' | 'cloud' | 'cloud-rain' | 'cloud-drizzle' | 'cloud-lightning' | 'wind';
+  tempMaxC: number;
+  tempMinC: number;
+  tempMaxF: number;
+  tempMinF: number;
+  precipitationChance: number; // 0-100%
+  humidity: number; // 0-100%
+  windSpeedKmH: number;
+  uvIndex: number;
+  sunrise: string;
+  sunset: string;
+  clothingTip: string;
+  travelSuitability: 'Ideal for Outdoors' | 'Great Exploring' | 'Passing Showers' | 'Indoor Preferred';
+  activityRecommendation: string;
+  hourlySlots: WeatherHourlySlot[];
+}
+
+export interface WeatherForecastData {
+  destination: string;
+  currentTempC: number;
+  currentTempF: number;
+  currentCondition: string;
+  currentIcon: 'sun' | 'cloud-sun' | 'cloud' | 'cloud-rain' | 'cloud-drizzle' | 'cloud-lightning' | 'wind';
+  feelsLikeC: number;
+  feelsLikeF: number;
+  humidity: number;
+  windSpeedKmH: number;
+  uvIndex: number;
+  airQualityStatus: 'Excellent' | 'Good' | 'Moderate';
+  generalAdvisory: string;
+  packingTip: string;
+  isSimulatedPreview: boolean;
+  dataSourceLabel: string;
+  lastUpdatedTime: string;
+  forecastDays: WeatherForecastDay[];
+}
+
 export interface TripPlan {
   id: string;
   createdAt: string;
@@ -181,6 +234,21 @@ export interface TripPlan {
   emergencyContacts: EmergencyContacts;
   isOfflineSaved: boolean;
   generatedWithAI: boolean;
+  weatherForecast?: WeatherForecastData;
+}
+
+export interface GroundingSource {
+  title: string;
+  uri: string;
+  type: 'web' | 'maps';
+  snippet?: string;
+}
+
+export interface GroundedPlace {
+  title: string;
+  uri: string;
+  address?: string;
+  reviewSnippet?: string;
 }
 
 export interface ChatMessage {
@@ -189,5 +257,9 @@ export interface ChatMessage {
   text: string;
   timestamp: string | number;
   source?: 'gemini' | 'demo_curated';
+  groundingType?: 'googleSearch' | 'googleMaps' | 'none';
+  groundingSources?: GroundingSource[];
+  groundedPlaces?: GroundedPlace[];
+  searchQueries?: string[];
   note?: string;
 }

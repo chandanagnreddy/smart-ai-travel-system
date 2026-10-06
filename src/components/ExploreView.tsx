@@ -16,13 +16,18 @@ import {
   ExternalLink,
   ChevronRight,
   Sparkles,
+  Search,
+  Loader2,
+  Navigation,
 } from 'lucide-react';
-import { TripPlan } from '../types';
+import { TripPlan, GroundedPlace, GroundingSource } from '../types';
+
+export type ExploreSubTab = 'hotels' | 'transport' | 'food' | 'grounding';
 
 interface ExploreViewProps {
   trip: TripPlan;
   onAskAI: (query: string) => void;
-  defaultSubTab?: 'hotels' | 'transport' | 'food';
+  defaultSubTab?: ExploreSubTab;
 }
 
 export const ExploreView: React.FC<ExploreViewProps> = ({
@@ -30,9 +35,61 @@ export const ExploreView: React.FC<ExploreViewProps> = ({
   onAskAI,
   defaultSubTab = 'hotels',
 }) => {
-  const [subTab, setSubTab] = useState<'hotels' | 'transport' | 'food'>(defaultSubTab);
+  const [subTab, setSubTab] = useState<ExploreSubTab>(defaultSubTab);
   const [hotelFilter, setHotelFilter] = useState<string>('all');
   const [dietaryFilter, setDietaryFilter] = useState<string>('all');
+
+  // Live Grounding Hub State
+  const [groundingMode, setGroundingMode] = useState<'maps' | 'search'>('maps');
+  const [groundingQuery, setGroundingQuery] = useState<string>('');
+  const [groundingLoading, setGroundingLoading] = useState<boolean>(false);
+  const [groundedPlaces, setGroundedPlaces] = useState<GroundedPlace[]>([]);
+  const [groundingSources, setGroundingSources] = useState<GroundingSource[]>([]);
+  const [groundingSummary, setGroundingSummary] = useState<string>('');
+
+  const handleFetchPlaces = async (customQuery?: string) => {
+    const q = (customQuery || groundingQuery).trim();
+    setGroundingLoading(true);
+    try {
+      const res = await fetch('/api/grounding/places', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          destination: trip.formData.destination,
+          query: q || `Top places, restaurants and attractions in ${trip.formData.destination}`,
+        }),
+      });
+      const data = await res.json();
+      setGroundedPlaces(data.places || []);
+      setGroundingSummary(data.summary || '');
+    } catch (e) {
+      console.error('Failed to fetch grounded places:', e);
+    } finally {
+      setGroundingLoading(false);
+    }
+  };
+
+  const handleFetchSearch = async (customQuery?: string) => {
+    const q = (customQuery || groundingQuery).trim();
+    setGroundingLoading(true);
+    try {
+      const res = await fetch('/api/grounding/search', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          destination: trip.formData.destination,
+          query: q || `Up-to-date travel advice and practical tips for ${trip.formData.destination}`,
+        }),
+      });
+      const data = await res.json();
+      setGroundingSources(data.sources || []);
+      setGroundingSummary(data.summary || '');
+    } catch (e) {
+      console.error('Failed to fetch search grounding:', e);
+    } finally {
+      setGroundingLoading(false);
+    }
+  };
 
   const filteredHotels = trip.accommodations.filter((h) => {
     if (hotelFilter === 'all') return true;
@@ -104,6 +161,24 @@ export const ExploreView: React.FC<ExploreViewProps> = ({
             >
               <Utensils className="w-4 h-4" />
               <span>Food & Culture</span>
+            </button>
+
+            <button
+              id="subtab-grounding-btn"
+              onClick={() => {
+                setSubTab('grounding');
+                if (groundedPlaces.length === 0 && !groundingLoading) {
+                  handleFetchPlaces(`Top places, restaurants and attractions in ${trip.formData.destination}`);
+                }
+              }}
+              className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all ${
+                subTab === 'grounding'
+                  ? 'bg-gradient-to-r from-emerald-600 to-cyan-600 text-white shadow-sm'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+              }`}
+            >
+              <MapPin className="w-4 h-4" />
+              <span>Live Maps & Search</span>
             </button>
           </div>
         </div>
@@ -483,6 +558,343 @@ export const ExploreView: React.FC<ExploreViewProps> = ({
               </div>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* SUB-TAB 4: LIVE GOOGLE MAPS & SEARCH GROUNDING */}
+      {subTab === 'grounding' && (
+        <div className="space-y-6">
+          {/* Grounding Header Card */}
+          <div className="p-6 rounded-3xl bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 border border-slate-700 text-white shadow-xl space-y-4">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div>
+                <div className="flex items-center gap-2 mb-1.5">
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-950/80 border border-emerald-500/40 text-emerald-300 text-xs font-bold">
+                    <MapPin className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>Google Maps Grounding</span>
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-cyan-950/80 border border-cyan-500/40 text-cyan-300 text-xs font-bold">
+                    <Globe className="w-3.5 h-3.5 text-cyan-400" />
+                    <span>Google Search Grounding</span>
+                  </span>
+                  <span className="text-[10px] font-mono text-slate-400 px-2 py-0.5 rounded-md bg-slate-800 border border-slate-700">
+                    gemini-3.5-flash
+                  </span>
+                </div>
+                <h3 className="text-xl sm:text-2xl font-black text-white">
+                  Live Grounded Travel Intelligence for {trip.formData.destination}
+                </h3>
+                <p className="text-xs sm:text-sm text-slate-300 mt-0.5">
+                  Query verified place coordinates, reviews, and directions via Google Maps, or fetch real-time web advice via Google Search.
+                </p>
+              </div>
+
+              {/* Mode Switcher */}
+              <div className="inline-flex p-1.5 rounded-2xl bg-slate-950/80 border border-slate-700 self-start md:self-center">
+                <button
+                  type="button"
+                  id="grounding-tab-maps-toggle"
+                  onClick={() => {
+                    setGroundingMode('maps');
+                    if (groundedPlaces.length === 0) {
+                      handleFetchPlaces();
+                    }
+                  }}
+                  className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+                    groundingMode === 'maps'
+                      ? 'bg-emerald-600 text-white shadow-md'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  <MapPin className="w-3.5 h-3.5" />
+                  <span>Google Maps Places</span>
+                </button>
+                <button
+                  type="button"
+                  id="grounding-tab-search-toggle"
+                  onClick={() => {
+                    setGroundingMode('search');
+                    if (groundingSources.length === 0) {
+                      handleFetchSearch();
+                    }
+                  }}
+                  className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+                    groundingMode === 'search'
+                      ? 'bg-cyan-600 text-white shadow-md'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  <Search className="w-3.5 h-3.5" />
+                  <span>Google Search Data</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Grounding Search Bar & Instant Filter Chips */}
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (groundingMode === 'maps') {
+                  handleFetchPlaces();
+                } else {
+                  handleFetchSearch();
+                }
+              }}
+              className="flex items-center gap-2 pt-2"
+            >
+              <div className="relative flex-1">
+                <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  placeholder={
+                    groundingMode === 'maps'
+                      ? `Search places, restaurants, or sights in ${trip.formData.destination} (Google Maps)...`
+                      : `Ask about current events, travel rules, or transit in ${trip.formData.destination} (Google Search)...`
+                  }
+                  value={groundingQuery}
+                  onChange={(e) => setGroundingQuery(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2.5 rounded-xl text-xs sm:text-sm bg-slate-800/90 border border-slate-700 text-white placeholder-slate-400 outline-hidden focus:ring-2 focus:ring-teal-500"
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={groundingLoading}
+                className={`px-5 py-2.5 rounded-xl text-xs font-bold text-white transition-all shadow-md flex items-center gap-1.5 disabled:opacity-50 ${
+                  groundingMode === 'maps'
+                    ? 'bg-emerald-600 hover:bg-emerald-500 shadow-emerald-600/20'
+                    : 'bg-cyan-600 hover:bg-cyan-500 shadow-cyan-600/20'
+                }`}
+              >
+                {groundingLoading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Querying...</span>
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-4 h-4" />
+                    <span>Explore</span>
+                  </>
+                )}
+              </button>
+            </form>
+
+            {/* Quick Query Pills */}
+            <div className="flex flex-wrap items-center gap-2 pt-1 text-xs">
+              <span className="text-slate-400 text-[11px] font-semibold">Quick Queries:</span>
+              {groundingMode === 'maps' ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setGroundingQuery(`Authentic local restaurants and street food in ${trip.formData.destination}`);
+                      handleFetchPlaces(`Authentic local restaurants and street food in ${trip.formData.destination}`);
+                    }}
+                    className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] font-medium border border-slate-700"
+                  >
+                    🍜 Authentic Eats
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setGroundingQuery(`Must-see historic shrines, temples and landmarks in ${trip.formData.destination}`);
+                      handleFetchPlaces(`Must-see historic shrines, temples and landmarks in ${trip.formData.destination}`);
+                    }}
+                    className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] font-medium border border-slate-700"
+                  >
+                    🏛️ Historic Sights
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setGroundingQuery(`Best panoramic viewpoints and sunset spots in ${trip.formData.destination}`);
+                      handleFetchPlaces(`Best panoramic viewpoints and sunset spots in ${trip.formData.destination}`);
+                    }}
+                    className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] font-medium border border-slate-700"
+                  >
+                    🌅 Sunset Viewpoints
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setGroundingQuery(`Specialty coffee roasters and cozy cafes in ${trip.formData.destination}`);
+                      handleFetchPlaces(`Specialty coffee roasters and cozy cafes in ${trip.formData.destination}`);
+                    }}
+                    className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] font-medium border border-slate-700"
+                  >
+                    ☕ Coffee & Cafes
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setGroundingQuery(`Current transit passes, subway discount tickets in ${trip.formData.destination}`);
+                      handleFetchSearch(`Current transit passes, subway discount tickets in ${trip.formData.destination}`);
+                    }}
+                    className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] font-medium border border-slate-700"
+                  >
+                    🚇 Transit Passes
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setGroundingQuery(`Latest seasonal weather and packing advisory for ${trip.formData.destination}`);
+                      handleFetchSearch(`Latest seasonal weather and packing advisory for ${trip.formData.destination}`);
+                    }}
+                    className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] font-medium border border-slate-700"
+                  >
+                    ⛅ Seasonal Weather
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setGroundingQuery(`Local etiquette, cultural customs, and tipping rules in ${trip.formData.destination}`);
+                      handleFetchSearch(`Local etiquette, cultural customs, and tipping rules in ${trip.formData.destination}`);
+                    }}
+                    className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] font-medium border border-slate-700"
+                  >
+                    🤝 Etiquette & Tipping
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setGroundingQuery(`Top student travel discounts and money saving hacks in ${trip.formData.destination}`);
+                      handleFetchSearch(`Top student travel discounts and money saving hacks in ${trip.formData.destination}`);
+                    }}
+                    className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] font-medium border border-slate-700"
+                  >
+                    🎓 Student Hacks
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+
+          {/* Results Summary Box if present */}
+          {groundingSummary && (
+            <div className="p-4 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm text-xs leading-relaxed text-slate-700 dark:text-slate-300 space-y-1">
+              <div className="font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5 text-teal-500" />
+                <span>AI Grounding Intelligence Summary:</span>
+              </div>
+              <p>{groundingSummary}</p>
+            </div>
+          )}
+
+          {/* GOOGLE MAPS GROUNDING RESULTS */}
+          {groundingMode === 'maps' && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h4 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                  <MapPin className="w-4 h-4 text-emerald-500" />
+                  <span>Verified Places from Google Maps Grounding ({groundedPlaces.length})</span>
+                </h4>
+                <span className="text-xs text-slate-400">Model: gemini-3.5-flash with googleMaps tool</span>
+              </div>
+
+              {groundedPlaces.length === 0 && !groundingLoading && (
+                <div className="p-8 text-center bg-white dark:bg-slate-800 rounded-3xl border border-slate-200 dark:border-slate-700 text-slate-500 text-xs">
+                  Click one of the quick query buttons above or search for a place to see live Google Maps grounding results.
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {groundedPlaces.map((place, idx) => (
+                  <div
+                    key={idx}
+                    className="p-5 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-md transition-all space-y-3 flex flex-col justify-between group"
+                  >
+                    <div className="space-y-2">
+                      <div className="flex items-start justify-between gap-2">
+                        <h5 className="font-extrabold text-sm text-slate-900 dark:text-white group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
+                          📍 {place.title}
+                        </h5>
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 shrink-0">
+                          Maps Grounded
+                        </span>
+                      </div>
+
+                      {place.address && (
+                        <div className="text-xs text-slate-500 dark:text-slate-400 flex items-start gap-1">
+                          <Navigation className="w-3 h-3 text-slate-400 shrink-0 mt-0.5" />
+                          <span>{place.address}</span>
+                        </div>
+                      )}
+
+                      {place.reviewSnippet && (
+                        <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-100 dark:border-slate-800 text-[11px] text-slate-600 dark:text-slate-300 italic">
+                          {place.reviewSnippet}
+                        </div>
+                      )}
+                    </div>
+
+                    <a
+                      href={place.uri}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="mt-3 w-full py-2 px-3 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white flex items-center justify-center gap-1.5 shadow-sm shadow-emerald-600/20 transition-all"
+                    >
+                      <span>Open in Google Maps</span>
+                      <ExternalLink className="w-3.5 h-3.5" />
+                    </a>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* GOOGLE SEARCH GROUNDING RESULTS */}
+          {groundingMode === 'search' && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h4 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                  <Globe className="w-4 h-4 text-cyan-500" />
+                  <span>Up-to-Date Web Sources from Google Search Grounding ({groundingSources.length})</span>
+                </h4>
+                <span className="text-xs text-slate-400">Model: gemini-3.5-flash with googleSearch tool</span>
+              </div>
+
+              {groundingSources.length === 0 && !groundingLoading && (
+                <div className="p-8 text-center bg-white dark:bg-slate-800 rounded-3xl border border-slate-200 dark:border-slate-700 text-slate-500 text-xs">
+                  Click one of the quick queries above or type a question to retrieve live Google Search grounded sources.
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {groundingSources.map((source, idx) => (
+                  <div
+                    key={idx}
+                    className="p-5 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-md transition-all space-y-3 flex flex-col justify-between"
+                  >
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-cyan-100 dark:bg-cyan-950 text-cyan-800 dark:text-cyan-300 border border-cyan-300 dark:border-cyan-800">
+                          Search Grounded
+                        </span>
+                        <Globe className="w-3.5 h-3.5 text-cyan-500" />
+                      </div>
+                      <h5 className="font-extrabold text-sm text-slate-900 dark:text-white line-clamp-2">
+                        {source.title}
+                      </h5>
+                    </div>
+
+                    <a
+                      href={source.uri}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="mt-2 w-full py-2 px-3 rounded-xl text-xs font-bold bg-slate-100 dark:bg-slate-700 hover:bg-cyan-600 hover:text-white text-slate-800 dark:text-slate-100 flex items-center justify-center gap-1.5 transition-all"
+                    >
+                      <span>Read Verified Source</span>
+                      <ExternalLink className="w-3.5 h-3.5" />
+                    </a>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

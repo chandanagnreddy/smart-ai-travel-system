@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Calendar,
   Sun,
@@ -17,8 +17,11 @@ import {
   GraduationCap,
   ChevronDown,
   ChevronUp,
+  CloudSun,
 } from 'lucide-react';
-import { TripPlan, DayItinerary, DayActivity } from '../types';
+import { TripPlan, DayItinerary, DayActivity, WeatherForecastData } from '../types';
+import { WeatherForecastCard } from './WeatherForecastCard';
+import { generate5DayWeatherForecast } from '../utils/weather';
 
 interface ItineraryViewProps {
   trip: TripPlan;
@@ -38,8 +41,25 @@ export const ItineraryView: React.FC<ItineraryViewProps> = ({
   const [selectedDayNum, setSelectedDayNum] = useState<number>(1);
   const [isEditing, setIsEditing] = useState<boolean>(false);
   const [editingDay, setEditingDay] = useState<DayItinerary | null>(null);
+  const [weatherData, setWeatherData] = useState<WeatherForecastData>(() => {
+    return trip.weatherForecast || generate5DayWeatherForecast(trip.formData.destination, trip.formData.travelDate);
+  });
+
+  // Sync weather data if active trip or destination changes
+  useEffect(() => {
+    if (trip.weatherForecast) {
+      setWeatherData(trip.weatherForecast);
+    } else {
+      setWeatherData(generate5DayWeatherForecast(trip.formData.destination, trip.formData.travelDate));
+    }
+  }, [trip.formData.destination, trip.formData.travelDate, trip.id]);
+
+  const handleRefreshForecast = () => {
+    setWeatherData(generate5DayWeatherForecast(trip.formData.destination, trip.formData.travelDate));
+  };
 
   const currentDay = trip.itinerary.find((d) => d.dayNumber === selectedDayNum) || trip.itinerary[0];
+  const activeDayWeather = weatherData.forecastDays.find((d) => d.dayNumber === selectedDayNum);
 
   const handleStartEdit = (day: DayItinerary) => {
     setEditingDay(JSON.parse(JSON.stringify(day)));
@@ -121,6 +141,17 @@ export const ItineraryView: React.FC<ItineraryViewProps> = ({
         </div>
       </div>
 
+      {/* 5-Day Weather Forecast Preview Card */}
+      <WeatherForecastCard
+        weather={weatherData}
+        selectedDayNum={selectedDayNum}
+        onSelectDay={(dayNum) => {
+          setSelectedDayNum(dayNum);
+          setIsEditing(false);
+        }}
+        onRefreshForecast={handleRefreshForecast}
+      />
+
       {/* Day Selector Tabs */}
       <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none">
         {trip.itinerary.map((day) => {
@@ -152,13 +183,19 @@ export const ItineraryView: React.FC<ItineraryViewProps> = ({
           {/* Day Title & Header Banner */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-slate-200 dark:border-slate-700">
             <div>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <span className="px-2.5 py-0.5 rounded-md text-xs font-black uppercase bg-teal-100 dark:bg-teal-950 text-teal-800 dark:text-teal-300 border border-teal-200 dark:border-teal-800">
                   Day {currentDay.dayNumber}
                 </span>
                 <span className="text-xs text-slate-500">
                   Est. Travel Time: {currentDay.estimatedTravelTime}
                 </span>
+                {activeDayWeather && (
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-xs font-semibold bg-sky-50 dark:bg-sky-950/60 text-sky-800 dark:text-sky-300 border border-sky-200 dark:border-sky-800">
+                    <CloudSun className="w-3.5 h-3.5 text-sky-500" />
+                    <span>{activeDayWeather.condition} • {activeDayWeather.tempMaxC}°C / {activeDayWeather.tempMaxF}°F</span>
+                  </span>
+                )}
               </div>
               <h3 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white mt-1">
                 {currentDay.title}

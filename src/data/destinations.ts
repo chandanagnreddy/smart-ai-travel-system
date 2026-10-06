@@ -10,6 +10,7 @@ import {
   SafetyAlertItem,
   EmergencyContacts,
 } from '../types';
+import { generate5DayWeatherForecast } from '../utils/weather';
 
 interface DestinationSeed {
   name: string;
@@ -902,6 +903,7 @@ export function generateCompleteTripPlan(formData: TripFormData): TripPlan {
     emergencyContacts: seed.emergency,
     isOfflineSaved: false,
     generatedWithAI: true,
+    weatherForecast: generate5DayWeatherForecast(seed.name, formData.travelDate),
   };
 }
 
